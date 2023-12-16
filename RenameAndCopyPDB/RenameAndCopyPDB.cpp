@@ -47,7 +47,7 @@ Error get_pdb_info(std::wstring dll_name, PdbName& pdb_info) {
 
 	if (module == 0)
 	{
-		std::wcout << "Failed load:" << dll_name << std::endl;
+		std::wcout << "Failed loading PE: " << dll_name << std::endl;
 		return FAIL;
 	}
 
@@ -88,11 +88,14 @@ Error get_pdb_info(std::wstring dll_name, PdbName& pdb_info) {
 
 			int name_offset = (int)(reinterpret_cast<char*>(pdb_rsds->PdbFileName) - reinterpret_cast<char*>(pdb_rsds));
 			pdb_info.address = dbg_dir->PointerToRawData + name_offset;
+
+			FreeLibrary(module);
+			return OK;
 		}
 	}
 
 	FreeLibrary(module);
-	return OK;
+	return NO_PDB_DATA;
 }
 
 Error patch_pdb_name(std::wstring dll, std::wstring pdb, size_t address, size_t original_size) {
@@ -128,13 +131,13 @@ int wmain(int argc, wchar_t** argv) {
 	std::setlocale(LC_ALL, "");
 
 	if (argc < 2) {
-		std::wcout << "Please specify DLL file!" << std::endl;
+		std::wcout << "Please specify PE file!" << std::endl;
 		return -1;
 	}
 
 	std::wstring dll_name = argv[1];
 	if (!std::filesystem::exists(dll_name)) {
-		std::wcout << "DLL file does not exists! " << dll_name << std::endl;
+		std::wcout << "File file does not exists! " << dll_name << std::endl;
 		return -1;
 	}
 
@@ -216,9 +219,19 @@ int wmain(int argc, wchar_t** argv) {
 		// Generate new name for PDB
 		std::wstring new_pdb_name = new_pdb_base_name + std::to_wstring(i) + L".pdb";
 
+		std::wstring copy_path = pdb_name.utf_name;
+		if (std::filesystem::path(pdb_name.utf_name).is_relative()) {
+			copy_path = std::filesystem::path(dll_name).parent_path().append(pdb_name.utf_name).wstring();
+		}
+		else {
+			if (!std::filesystem::exists(pdb_name.utf_name)) {
+				copy_path = std::filesystem::path(dll_name).parent_path().append(std::filesystem::path(pdb_name.utf_name).filename().wstring()).wstring();
+			}
+		}
+
 		// Try to copy PDB
 		std::filesystem::copy_file(
-			std::filesystem::path(pdb_name.utf_name).is_relative() ? std::filesystem::path(dll_name).parent_path().append(pdb_name.utf_name).wstring() : pdb_name.utf_name,
+			copy_path,
 			std::filesystem::path(dll_name).parent_path().append(new_pdb_name).wstring(),
 			std::filesystem::copy_options::overwrite_existing, err);
 
@@ -234,11 +247,11 @@ int wmain(int argc, wchar_t** argv) {
 
 		err_code = patch_pdb_name(new_dll_name, new_pdb_name, pdb_name.address, pdb_name.original_path.length());
 		if (err_code == OK) {
-			std::wcout << "DLL patched. New PDB name: " << new_pdb_name << std::endl;
+			std::wcout << "File patched. New PDB name: " << new_pdb_name << std::endl;
 			break;
 		}
 		else if (err_code == DLL_LOCKED) {
-			std::wcout << "DLL locked. Failed to patch DLL: " << new_dll_name << std::endl;
+			std::wcout << "File locked. Failed to patch DLL: " << new_dll_name << std::endl;
 			break;
 		}
 		else if (err_code == DLL_TOO_BIG_ADDRESS) {
