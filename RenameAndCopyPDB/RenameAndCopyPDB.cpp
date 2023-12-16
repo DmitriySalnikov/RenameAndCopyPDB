@@ -175,7 +175,6 @@ int wmain(int argc, wchar_t** argv) {
 
 	// Save the new base name for the PDB. It will be relative, not absolute, as in Visual Studio by default.
 	// This is necessary so as not to change the size of the field with the PDB name, but simply replace it with a new name.
-	// TODO add logic to support short relative names
 	std::wstring new_pdb_base_name = L"~" + std::filesystem::path(pdb_name.utf_name).filename().replace_extension("").wstring() + L"_";
 
 	const size_t suffix_size = 3 /* 999 */ + 4 /* .pdb */;
@@ -187,6 +186,7 @@ int wmain(int argc, wchar_t** argv) {
 			return -1;
 		}
 
+		// Since the string inside the DLL may be longer than our widechar string, here I trim the string in DLL format and convert it back to widechar.
 		new_pdb_base_name = std::wstring(utf8_to_wc(std::string(wc_to_utf8(new_pdb_base_name.c_str())).substr(0, pdb_name.original_path.length() - suffix_size).c_str()));
 	}
 
@@ -223,19 +223,19 @@ int wmain(int argc, wchar_t** argv) {
 		// Generate new name for PDB
 		std::wstring new_pdb_name = new_pdb_base_name + std::to_wstring(i) + L".pdb";
 
-		std::wstring copy_path = pdb_name.utf_name;
+		std::wstring copy_from_path = pdb_name.utf_name;
 		if (std::filesystem::path(pdb_name.utf_name).is_relative()) {
-			copy_path = std::filesystem::path(dll_name).parent_path().append(pdb_name.utf_name).wstring();
+			copy_from_path = std::filesystem::path(dll_name).parent_path().append(pdb_name.utf_name).wstring();
 		}
 		else {
 			if (!std::filesystem::exists(pdb_name.utf_name)) {
-				copy_path = std::filesystem::path(dll_name).parent_path().append(std::filesystem::path(pdb_name.utf_name).filename().wstring()).wstring();
+				copy_from_path = std::filesystem::path(dll_name).parent_path().append(std::filesystem::path(pdb_name.utf_name).filename().wstring()).wstring();
 			}
 		}
 
 		// Try to copy PDB
 		std::filesystem::copy_file(
-			copy_path,
+			copy_from_path,
 			std::filesystem::path(dll_name).parent_path().append(new_pdb_name).wstring(),
 			std::filesystem::copy_options::overwrite_existing, err);
 
