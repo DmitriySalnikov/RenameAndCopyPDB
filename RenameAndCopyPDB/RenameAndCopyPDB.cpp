@@ -89,12 +89,14 @@ Error get_pdb_info(std::wstring dll_name, PdbName& pdb_info) {
 			int name_offset = (int)(reinterpret_cast<char*>(pdb_rsds->PdbFileName) - reinterpret_cast<char*>(pdb_rsds));
 			pdb_info.address = dbg_dir->PointerToRawData + name_offset;
 
-			FreeLibrary(module);
+			if (!FreeLibrary(module))
+				std::cout << "The library cannot be unloaded.";
 			return OK;
 		}
 	}
 
-	FreeLibrary(module);
+	if (!FreeLibrary(module))
+		std::cout << "The library cannot be unloaded.";
 	return NO_PDB_DATA;
 }
 
