@@ -137,7 +137,7 @@ int wmain(int argc, wchar_t** argv) {
 
 	std::wstring dll_name = argv[1];
 	if (!std::filesystem::exists(dll_name)) {
-		std::wcout << "File file does not exists! " << dll_name << std::endl;
+		std::wcout << "File does not exists! " << dll_name << std::endl;
 		return -1;
 	}
 
@@ -162,6 +162,7 @@ int wmain(int argc, wchar_t** argv) {
 	}
 	else if (err_code == NO_PDB_DATA) {
 		std::wcout << "No PDB info found inside: " << new_dll_name << std::endl;
+		std::filesystem::remove(new_dll_name, err);
 		return -1;
 	}
 	else {
@@ -180,6 +181,7 @@ int wmain(int argc, wchar_t** argv) {
 	if (numbered_pdb_size > pdb_name.original_path.length()) {
 		if (pdb_name.original_path.length() < suffix_size + 1) {
 			std::cout << "The original PDB path length is too small: " << pdb_name.original_path << std::endl;
+			std::filesystem::remove(new_dll_name, err);
 			return -1;
 		}
 
@@ -238,6 +240,7 @@ int wmain(int argc, wchar_t** argv) {
 		if (err == std::errc::no_such_file_or_directory) {
 			std::cout << err.message() << std::endl;
 			std::wcout << "PDB file not found: " << pdb_name.utf_name << std::endl;
+			std::filesystem::remove(new_dll_name, err);
 			return -1;
 		}
 		else if (err) {
